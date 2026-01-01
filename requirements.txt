@@ -1,5 +1,5 @@
-adam-atan2-pytorch==0.2.4
-adam_atan2==0.0.3
+#adam-atan2-pytorch==0.2.4
+#adam_atan2==0.0.3
 annotated-types==0.7.0
 antlr4-python3-runtime==4.9.3
 anyio==4.11.0
