@@ -9,7 +9,6 @@ pip install einops
 pip install argdantic
 pip install huggingface_hub
 pip install visdom
-wandb login 2957a68e9d48b6057e6cf86baa3f93c66cdb16d7
 
 find /usr -name "libcuda.so*"
 sudo ln -s /usr/lib/x86_64-linux-gnu/libcuda.so.1            /usr/lib/x86_64-linux-gnu/libcuda.so

@@ -82,7 +82,7 @@ class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a 
                                                self.read_vec_vb.view(-1, self.read_vec_dim)), 1))
 
         # we clip the output values here
-        return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(768, int(self.batch_size/768), self.output_dim)
+        return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(48, int(self.batch_size/48), self.output_dim)
     def forward(self, input_vb):
         # NOTE: the operation order must be the following: control, access{write, read}, output
 
@@ -95,4 +95,4 @@ class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a 
                                                self.read_vec_vb.view(-1, self.read_vec_dim)), 1))
 
         # we clip the output values here
-        return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(768, self.batch_size, self.output_dim)
+        return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(48, self.batch_size, self.output_dim)

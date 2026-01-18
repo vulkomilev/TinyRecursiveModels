@@ -145,11 +145,11 @@ class CircuitParams(Params):# settings for network architecture
         self.output_dim     = None  # set after env
 
         if self.circuit_type == "ntm":
-            self.hidden_dim      = 512
+            self.hidden_dim      = 512#512
             self.num_write_heads = 1
             self.num_read_heads  = 1
-            self.mem_hei         = 128
-            self.mem_wid         = 20
+            self.mem_hei         = 2#128
+            self.mem_wid         = 5#20
             self.clip_value      = 20.   # clips controller and circuit output values to in between
         elif self.circuit_type == "dnc":
             self.hidden_dim      = 512
@@ -172,7 +172,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
                 self.optim          = optim.RMSprop
 
                 self.steps          = 100000    # max #iterations
-                self.batch_size     = 768*97 #768*97
+                self.batch_size     = 48*97 #768*97
                 self.early_stop     = None      # max #steps per episode
                 self.clip_grad      = 50.
                 self.lr             = 1e-4

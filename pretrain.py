@@ -619,8 +619,11 @@ def launch(hydra_config: DictConfig):
                 print("EVALUATE")
             if config.ema:
                 print("SWITCH TO EMA")
-                train_state_eval = copy.deepcopy(train_state)
-                train_state_eval.model = ema_helper.ema_copy(train_state_eval.model)
+                #FIX THIS
+                #train_state_eval = copy.deepcopy(train_state)
+                # train_state_eval.model = ema_helper.ema_copy(train_state_eval.model)
+                #train_state_eval.model = ema_helper.ema_copy(train_state.model)
+                train_state_eval = train_state
             else:
                 train_state_eval = train_state
             train_state_eval.model.eval()
@@ -639,9 +642,9 @@ def launch(hydra_config: DictConfig):
             ############ Checkpointing
             if RANK == 0:
                 print("SAVE CHECKPOINT")
-            #if RANK == 0 and (config.checkpoint_every_eval or (_iter_id == total_iters - 1)):
-            save_train_state(config, train_state_eval)
-            exit(0)
+            if RANK == 0 and (config.checkpoint_every_eval or (_iter_id == total_iters - 1)):
+                save_train_state(config, train_state_eval)
+            #exit(0)
             if config.ema:
                 del train_state_eval
 
