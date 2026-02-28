@@ -39,6 +39,8 @@ class Head(nn.Module):
 
     def _visual(self):
         raise NotImplementedError("not implemented in base calss")
+    def _reset_visual(self):
+        raise NotImplementedError("not implemented in base calss")  
 
     def _access(self, memory_vb):
         # NOTE: called at the end of forward, to use the weight to read/write from/to memory

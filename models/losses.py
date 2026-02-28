@@ -47,6 +47,8 @@ class ACTLossHead(nn.Module):
     def initial_carry(self, *args, **kwargs):
         return self.model.initial_carry(*args, **kwargs)  # type: ignore
 
+    def reset_visual(self):
+        self.model.reset_visual()
     def forward(
         self,
         return_keys: Sequence[str],
@@ -57,7 +59,8 @@ class ACTLossHead(nn.Module):
         # B x SeqLen x D
         new_carry, outputs = self.model(**model_kwargs)
         labels = new_carry.current_data["labels"]
-
+        #print("outputs['logits']",torch.argmax(outputs["logits"], dim=-1))#.)
+        #exit(0)
         with torch.no_grad():
             # Preds
             outputs["preds"] = torch.argmax(outputs["logits"], dim=-1)

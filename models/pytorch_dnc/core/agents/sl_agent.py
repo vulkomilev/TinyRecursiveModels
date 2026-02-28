@@ -26,7 +26,7 @@ class SLAgent(Agent):   # for supervised learning tasks
         self.circuit_params = args.circuit_params
         self.circuit_params.batch_size = args.batch_size
         self.circuit_params.input_dim = self.state_shape
-        self.circuit_params.output_dim = self.action_dim
+        self.circuit_params.output_dim = 64*97 #to match the dimensionality of the trm # self.action_dim
         self.circuit = self.circuit_prototype(self.circuit_params)
         self.circuit =  self.circuit.to("cuda")
         self._load_model(self.model_file)   # load pretrained circuit if provided
@@ -67,7 +67,7 @@ class SLAgent(Agent):   # for supervised learning tasks
 
             # NOTE: this part is for examine the heads' weights and memory usage
             # NOTE: only used during testing, cos visualization takes time
-            if self.mode == 2 and self.visualize:
+            if self.visualize: #self.mode == 2 and self.visualize:
                 self.env.visual(input_ts[i,0,:].unsqueeze(0).unsqueeze(1),
                                 self.target_vb.data[i,0,:].unsqueeze(0).unsqueeze(1),
                                 self.mask_ts[i,0,:].unsqueeze(0).unsqueeze(1),
@@ -75,7 +75,7 @@ class SLAgent(Agent):   # for supervised learning tasks
                 self.circuit.accessor.visual()
                 raw_input()
 
-        if not self.training and self.visualize:
+        if self.visualize:#not self.training and self.visualize:
             self.env.visual(input_ts, self.target_vb.data, self.mask_ts, self.output_vb.data)
 
         return 0    # for all the supervised tasks we just return a 0 to keep the same format as rl

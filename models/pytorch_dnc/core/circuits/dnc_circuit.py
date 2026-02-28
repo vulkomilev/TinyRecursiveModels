@@ -17,6 +17,8 @@ class DNCCircuit(Circuit):
 
         # build model
         self.hid_to_out = nn.Linear(self.hidden_dim + self.read_vec_dim, self.output_dim)
+        #self.hid_to_out = nn.Linear(self.hidden_dim, self.output_dim)
+
 
         self._reset()
 

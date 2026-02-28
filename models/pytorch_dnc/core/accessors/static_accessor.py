@@ -45,7 +45,10 @@ class StaticAccessor(Accessor):
 
     def forward(self, hidden_vb):
         # 1. first write to memory_{t-1} to get memory_{t}
+        #print("1.5.1.1-static")
         self.memory.memory_vb = self.write_heads.forward(hidden_vb, self.memory.memory_vb)
+        #print("1.5.1.2-static")
         # 2. then read from memory_{t} to get read_vec_{t}
         read_vec_vb = self.read_heads.forward(hidden_vb, self.memory.memory_vb)
+        #print("1.5.1.3-static")
         return read_vec_vb

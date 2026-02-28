@@ -21,6 +21,9 @@ class DynamicHead(Head):
     def _update_usage(self, prev_usage_vb):
         raise NotImplementedError("not implemented in base calss")
 
+    def _reset_visual(self):
+        raise NotImplementedError("not implemented in base calss")
+
     def _content_focus(self, memory_vb):
         """
         variables needed:
@@ -36,10 +39,11 @@ class DynamicHead(Head):
             wc_vb:     [batch_size x num_heads x mem_hei]
                     -> the attention weight by content focus
         """
+
         K_vb = batch_cosine_sim(self.key_vb, memory_vb)  # [batch_size x num_heads x mem_hei]
         self.wc_vb = K_vb * self.beta_vb.expand_as(K_vb) # [batch_size x num_heads x mem_hei]
         self.wc_vb = F.softmax(self.wc_vb.transpose(0, 2)).transpose(0, 2)
-
+    
     def _location_focus(self):
         raise NotImplementedError("not implemented in base calss")
 

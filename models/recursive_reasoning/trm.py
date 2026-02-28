@@ -203,6 +203,7 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         self.agent = AgentDict[opt.agent_type](opt.agent_params,
                                         env_prototype     = env_prototype,
                                         circuit_prototype = circuit_prototype)
+        self.agent.circuit = self.agent.circuit.to('cuda:0')
         self.forward_dtype = getattr(torch, self.config.forward_dtype)
         self.auto_encoder = AutoEncoder(forward_dtype=self.forward_dtype)
         self.memory = torch.Tensor([[[[0]*500]*11]*(self.config.seq_len + self.config.puzzle_emb_len)]*(self.config.batch_size)).to('cuda:0')
@@ -267,6 +268,7 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         return self.embed_scale * embedding
 
     def empty_carry(self, batch_size: int):
+        #HOW THE SIZE IS CONFIGED
         return TinyRecursiveReasoningModel_ACTV1InnerCarry(
             z_H=torch.empty(batch_size, self.config.seq_len + self.puzzle_emb_len, self.config.hidden_size, dtype=self.forward_dtype),
             z_L=torch.empty(batch_size, self.config.seq_len + self.puzzle_emb_len, self.config.hidden_size, dtype=self.forward_dtype),
@@ -277,6 +279,8 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
             z_H=torch.where(reset_flag.view(-1, 1, 1), self.H_init, carry.z_H),
             z_L=torch.where(reset_flag.view(-1, 1, 1), self.L_init, carry.z_L),
         )
+    def reset_visual(self):
+        self.agent.circuit.reset_visual()
 
     def forward(self, carry: TinyRecursiveReasoningModel_ACTV1InnerCarry, batch: Dict[str, torch.Tensor]) -> Tuple[TinyRecursiveReasoningModel_ACTV1InnerCarry, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         seq_info = dict(
@@ -285,30 +289,50 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
 
         # Input encoding
         input_embeddings = self._input_embeddings(batch["inputs"], batch["puzzle_identifiers"])
-
+        #print(    "input_embeddings",input_embeddings.shape)
         # Forward iterations
         it = 0
+        #print('point 1')
         z_H, z_L = carry.z_H, carry.z_L
         # H_cycles-1 without grad
+        
         with torch.no_grad():
-            for _H_step in range(self.config.H_cycles-1):
+           for _H_step in range(self.config.H_cycles-1):
                 for _L_step in range(self.config.L_cycles):
-                    z_L = diff_fn(z_L, z_H + input_embeddings)
+                    #print('point 1.1')
+                    #print("z_H.shape1",z_H.shape)
+                    #print("input_embeddings.shape1",input_embeddings.shape)
+                    #z_L = diff_fn(z_L, z_H + input_embeddings)
+                    #print('point 1.2')
                     z_L = self.L_level(z_L, z_H + input_embeddings, **seq_info)
+                    #print('point 1.3')
+                #print('point 1.4')
                 z_H = self.L_level(z_H, z_L, **seq_info)
                 #print("z_H.shape",z_H.shape)
+                #print('point 1.5')
+                #print("z_H.shape1",z_H.shape)
+                #My research
                 z_H = self.agent.circuit.forward_no_controller(z_H)
+                #print("z_H.shape2",z_H.shape)
+                #print('point 1.6')
                 #print("z_H.shape",z_H.shape)
-               
+        #print('point 2')
         # 1 with grad
         for _L_step in range(self.config.L_cycles):
             z_L = self.L_level(z_L, z_H + input_embeddings, **seq_info)
+        #print('point 3')
+        #print("z_H.shape",z_H.shape)
         z_H = self.L_level(z_H, z_L, **seq_info)
 
+        z_H = self.agent.circuit.forward_no_controller(z_H)
+
+        #print('point 3')
         # LM Outputs
         new_carry = TinyRecursiveReasoningModel_ACTV1InnerCarry(z_H=z_H.detach(), z_L=z_L.detach())  # New carry no grad
         output = self.lm_head(z_H)[:, self.puzzle_emb_len:]
+
         q_logits = self.q_head(z_H[:, 0]).to(torch.float32) # Q-head; uses the first puzzle_emb position
+        #print('point 4')
         return new_carry, output, (q_logits[..., 0], q_logits[..., 1])
 
 
@@ -341,6 +365,9 @@ class TinyRecursiveReasoningModel_ACTV1(nn.Module):
     @property
     def puzzle_emb(self):
         return self.inner.puzzle_emb
+
+    def reset_visual(self):
+        self.inner.reset_visual()
 
     def initial_carry(self, batch: Dict[str, torch.Tensor]):
         batch_size = batch["inputs"].shape[0]

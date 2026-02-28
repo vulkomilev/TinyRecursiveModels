@@ -14,7 +14,7 @@ def batch_cosine_sim(u, v, epsilon=1e-6):
     assert u.dim() == 3 and v.dim() == 3
    
     #print("u shape",u.shape)
-    #print("v shape",v.shape)
+    #print("v shape",v.transpose(1, 2).shape)
     numerator = torch.bmm(u, v.transpose(1, 2))
     # denominator = torch.sqrt(torch.bmm(u.norm(2, 2).pow(2) + epsilon, v.norm(2, 2).pow(2).transpose(1, 2) + epsilon))                             # 0.1.12
     denominator = torch.sqrt(torch.bmm(u.norm(2, 2, keepdim=True).pow(2) + epsilon, v.norm(2, 2, keepdim=True).pow(2).transpose(1, 2) + epsilon))   # 0.2.0

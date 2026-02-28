@@ -17,7 +17,7 @@ class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a 
         # params
         self.batch_size = args.batch_size
         self.input_dim = args.input_dim
-        self.output_dim = 512#args.output_dim
+        self.output_dim = args.output_dim
         self.hidden_dim = args.hidden_dim
         self.num_write_heads = args.num_write_heads
         self.num_read_heads = args.num_read_heads
@@ -73,16 +73,51 @@ class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a 
         # reset internal states
         self.read_vec_ts = torch.zeros(self.batch_size, self.read_vec_dim).fill_(1e-6)
         self._reset_states()
-    
-    def forward_no_controller(self, input_vb):
-        # 1. then we write to memory_{t-1} to get memory_{t}; then read from memory_{t} to get read_vec_{t}
-        self.read_vec_vb = self.accessor.forward(input_vb)
-        # 2 finally we concat the output from the controller and the current read_vec_{t} to get the final output
-        output_vb = self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim),
-                                               self.read_vec_vb.view(-1, self.read_vec_dim)), 1))
+    def reset_visual(self):
+        pass
+        #self.accessor.reset_visual()
 
-        # we clip the output values here
-        return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(48, int(self.batch_size/48), self.output_dim)
+    def forward_no_controller(self, input_vb):
+        #print('input_vb',input_vb.shape)
+        input_vb = torch.reshape(input_vb, ( -1,97* 64))
+                #     #with torch.no_grad():
+        self.read_vec_vb = self.accessor.forward(input_vb)
+        
+        if self.training:
+        #   with torch.no_grad():
+              self.accessor.visual()
+        output_vb = self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim),
+                                                        self.read_vec_vb.view(-1, self.read_vec_dim)), 1))
+        return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(int(self.batch_size), int(self.batch_size), 64)
+        #print("(1, int(self.batch_size), self.output_dim)",(1, int(self.batch_size), self.output_dim))
+        # if not self.training:
+        #     #with torch.no_grad():
+        #         self.read_vec_vb = self.accessor.forward(input_vb)
+        #         #self.accessor.visual()
+        #         output_vb = self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim),
+        #                                                self.read_vec_vb.view(-1, self.read_vec_dim)), 1))
+        #         #output_vb = torch.cat((input_vb.view(-1, self.hidden_dim)), 1)
+        #         #output_vb = self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim)), 1))
+        #         return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(int(self.batch_size), int(self.batch_size), 64)
+        # else:
+        #     #print("1.5.1")
+    
+        #     self.read_vec_vb = self.accessor.forward(input_vb)
+        #     #print("1.5.2")
+        #     #output_vb = torch.zeros_like(self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim),
+        #     #                                       self.read_vec_vb.view(-1, self.read_vec_dim)), 1)))
+        #     #output_vb = torch.cat((input_vb.view(-1, self.hidden_dim)), 1)
+        #     #output_vb = self.hid_to_out((input_vb.view(-1, self.hidden_dim)))
+
+        #     output_vb = self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim),
+        #                                                self.read_vec_vb.view(-1, self.read_vec_dim)), 1))
+
+        #     with torch.no_grad():
+        #         self.accessor.visual()
+        #     #print("1.5.3")
+        #     return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(int(self.batch_size), int(self.batch_size), 64)
+            #            return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(768, int(self.batch_size/768), self.output_dim)
+
     def forward(self, input_vb):
         # NOTE: the operation order must be the following: control, access{write, read}, output
 

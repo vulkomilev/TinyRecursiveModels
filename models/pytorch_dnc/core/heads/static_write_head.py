@@ -32,11 +32,15 @@ class StaticWriteHead(StaticHead):
 
     def forward(self, hidden_vb, memory_vb):
         # content & location focus
+        #print("1.5.1.1.1-write head static")
         super(StaticWriteHead, self).forward(hidden_vb, memory_vb)
+        #print("1.5.1.1.2-write head static")
         self.wl_prev_vb = self.wl_curr_vb
         # access
         self.erase_vb = F.sigmoid(self.hid_2_erase(hidden_vb)).view(-1, self.num_heads, self.mem_wid)
+        #print("1.5.1.1.3-write head static")
         self.add_vb   = F.tanh(self.hid_2_add(hidden_vb)).view(-1, self.num_heads, self.mem_wid)
+        #print("1.5.1.1.4-write head static")
         return self._access(memory_vb)
 
     def _access(self, memory_vb): # write

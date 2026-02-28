@@ -4,6 +4,7 @@ from __future__ import print_function
 import numpy as np
 import torch
 from torch.autograd import Variable
+import visdom
 
 class ExternalMemory(object):
     def __init__(self, args):
@@ -32,7 +33,9 @@ class ExternalMemory(object):
 
     def _reset_states(self):
         self.memory_vb = Variable(self.memory_ts).type(self.dtype)
-        self.memory_vb.to('cuda:0')
+        self.memory_vb = self.memory_vb.to('cuda:0')
+    def _reset_visual(self):
+        self.vis = visdom.Visdom()
 
     def _reset(self):           # NOTE: should be called at each child's __init__
         self.memory_ts = torch.zeros(self.batch_size, self.mem_hei, self.mem_wid).fill_(1e-6)
@@ -41,7 +44,7 @@ class ExternalMemory(object):
 
     def visual(self):
         if self.visualize:      # here we visualize the memory of batch0
-            self.win_memory = self.vis.heatmap(self.memory_vb.data[0].clone().cpu().numpy(), env=self.refs, win=self.win_memory, opts=dict(title="memory"))
+            self.win_memory = self.vis.heatmap(self.memory_vb.data[0].clone().cpu().float().numpy(), env=self.refs, win=self.win_memory, opts=dict(title="memory"))
 
 class External2DMemory(ExternalMemory):
     def __init__(self, args):

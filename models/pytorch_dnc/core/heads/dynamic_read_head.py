@@ -4,6 +4,7 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import visdom
 
 from ...core.heads.dynamic_head import DynamicHead
 
@@ -17,7 +18,7 @@ class DynamicReadHead(DynamicHead):
         # NOTE: mixing between backwards and forwards position (for each write head)
         # NOTE: and content-based lookup, for each read head
         self.num_read_modes = args.num_read_modes
-
+        print("self.hidden_dim, self.num_heads ",self.hidden_dim, self.num_heads )
         # build model: add additional outs for read
         # for locatoin focus: temporal linkage
         self.hid_2_free_gate = nn.Linear(self.hidden_dim, self.num_heads * 1)
@@ -29,10 +30,11 @@ class DynamicReadHead(DynamicHead):
 
         # reset
         self._reset()
-
+    def _reset_visual(self):
+        self.vis = visdom.Visdom()
     def visual(self):
         if self.visualize:      # here we visualize the wl_curr of the first batch
-            self.win_head = self.vis.heatmap(self.wl_curr_vb.data[0].clone().cpu().transpose(0, 1).numpy(), env=self.refs, win=self.win_head, opts=dict(title="read_head"))
+          self.win_head = self.vis.heatmap(self.wl_curr_vb.data[0].clone().cpu().transpose(0, 1).float().numpy(), env=self.refs, win=self.win_head, opts=dict(title="read_head"))
 
     def _update_usage(self, hidden_vb, prev_usage_vb):
         """
@@ -45,7 +47,10 @@ class DynamicReadHead(DynamicHead):
         returns:
             usage_vb:      [batch_size x mem_hei]
         """
+        #print("hidden_vb",hidden_vb.shape)
         self.free_gate_vb = F.sigmoid(self.hid_2_free_gate(hidden_vb)).view(-1, self.num_heads, 1)
+        #print("F.sigmoid(self.hid_2_free_gate(hidden_vb))",F.sigmoid(self.hid_2_free_gate(hidden_vb)).shape)
+
         free_read_weights_vb = self.free_gate_vb.expand_as(self.wl_prev_vb) * self.wl_prev_vb
         psi_vb = torch.prod(1. - free_read_weights_vb, 1)
         return prev_usage_vb * psi_vb

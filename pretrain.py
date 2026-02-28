@@ -1,7 +1,10 @@
+from contextlib import nullcontext
+from csv import writer
 from typing import Optional, Any, Sequence, List
 from dataclasses import dataclass
 import os
 import math
+from xml.parsers.expat import model
 import yaml
 import shutil
 import copy
@@ -10,6 +13,7 @@ import torch
 import torch.distributed as dist
 from torch import nn
 from torch.utils.data import DataLoader
+from torchviz import make_dot
 
 import tqdm
 import wandb
@@ -24,7 +28,11 @@ from puzzle_dataset import PuzzleDataset, PuzzleDatasetConfig, PuzzleDatasetMeta
 from utils.functions import load_model_class, get_model_source_path
 from models.sparse_embedding import CastedSparseEmbeddingSignSGD_Distributed
 from models.ema import EMAHelper
+from torch.utils.tensorboard import SummaryWriter
 
+
+LOG = False
+VISDOM = True
 
 class LossConfig(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra='allow')
@@ -301,9 +309,9 @@ def train_batch(config: PretrainConfig, train_state: TrainState, batch: Any, glo
             train_state.carry = train_state.model.initial_carry(batch)  # type: ignore
 
     # Forward
-    train_state.carry, loss, metrics, _, _ = train_state.model(carry=train_state.carry, batch=batch, return_keys=[])
 
-    ((1 / global_batch_size) * loss).backward()
+    train_state.carry, loss, metrics, _, _ = train_state.model(carry=train_state.carry, batch=batch, return_keys=[])
+    ((1 / global_batch_size) * loss).backward()#retain_graph=True )
 
     # Allreduce
     if world_size > 1:
@@ -354,8 +362,8 @@ def evaluate(
     cpu_group: Optional[dist.ProcessGroup],
 ):
     reduced_metrics = None
-
-    with torch.inference_mode():
+    context = torch.inference_mode() if (not VISDOM) else nullcontext()
+    with context:
         return_keys = set(config.eval_save_outputs)
         for evaluator in evaluators:
             evaluator.begin_eval()
@@ -392,7 +400,13 @@ def evaluate(
 
                 if all_finish:
                     break
-
+            # writer = SummaryWriter()
+            # writer.add_graph(train_state.model,  [carry,batch, return_keys])
+            # writer.close()
+            #print("carry.inner_carry",dir(carry.inner_carry))
+            #onnx_program = torch.onnx.export(train_state.model)
+            #onnx_program.save("trm.onnx")
+            #make_dot(carry.inner_carry.z_H.mean(), params=dict(train_state.model.named_parameters()), show_attrs=True, show_saved=True).render("rnn_torchviz", format="png")
             if rank == 0:
                 print(f"  Completed inference in {inference_steps} steps")
 
@@ -586,11 +600,13 @@ def launch(hydra_config: DictConfig):
     # Progress bar and logger
     progress_bar = None
     ema_helper = None
+
     if RANK == 0:
         progress_bar = tqdm.tqdm(total=train_state.total_steps)
-        wandb.init(project=config.project_name, name=config.run_name, config=config.model_dump(), settings=wandb.Settings(_disable_stats=True))  # type: ignore
-        wandb.log({"num_params": sum(x.numel() for x in train_state.model.parameters())}, step=0)
-        save_code_and_config(config)
+        if LOG:
+            wandb.init(project=config.project_name, name=config.run_name, config=config.model_dump(), settings=wandb.Settings(_disable_stats=True))  # type: ignore
+            wandb.log({"num_params": sum(x.numel() for x in train_state.model.parameters())}, step=0)
+            save_code_and_config(config)
     if config.ema:
         print('Setup EMA')
         ema_helper = EMAHelper(mu=config.ema_rate)
@@ -603,12 +619,15 @@ def launch(hydra_config: DictConfig):
         ############ Train Iter
         if RANK == 0:
             print("TRAIN")
+        
         train_state.model.train()
         for set_name, batch, global_batch_size in train_loader:
+        
             metrics = train_batch(config, train_state, batch, global_batch_size, rank=RANK, world_size=WORLD_SIZE)
 
             if RANK == 0 and metrics is not None:
-                wandb.log(metrics, step=train_state.step)
+                if LOG:
+                    wandb.log(metrics, step=train_state.step)
                 progress_bar.update(train_state.step - progress_bar.n)  # type: ignore
             if config.ema:
                 ema_helper.update(train_state.model)
@@ -627,6 +646,7 @@ def launch(hydra_config: DictConfig):
             else:
                 train_state_eval = train_state
             train_state_eval.model.eval()
+            #train_state_eval.model.reset_visual()
             metrics = evaluate(config, 
                 train_state_eval, 
                 eval_loader, 
@@ -636,8 +656,9 @@ def launch(hydra_config: DictConfig):
                 world_size=WORLD_SIZE,
                 cpu_group=CPU_PROCESS_GROUP)
 
-            if RANK == 0 and metrics is not None:
-                wandb.log(metrics, step=train_state.step)
+            if LOG:
+                if RANK == 0 and metrics is not None:
+                    wandb.log(metrics, step=train_state.step)
                 
             ############ Checkpointing
             if RANK == 0:
@@ -651,7 +672,8 @@ def launch(hydra_config: DictConfig):
     # finalize
     if dist.is_initialized():
         dist.destroy_process_group()
-    wandb.finish()
+    if LOG:
+        wandb.finish()
 
 
 if __name__ == "__main__":

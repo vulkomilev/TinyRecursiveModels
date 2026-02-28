@@ -11,7 +11,11 @@ class Accessor(nn.Module):
         # params
         self.use_cuda = args.use_cuda
         self.dtype = args.dtype
-
+        self.visualize = args.visualize
+        if self.visualize:
+            self.vis      = args.vis
+            self.refs     = args.refs
+            self.win_head = None
         # params
         self.batch_size = args.batch_size
         self.hidden_dim = args.hidden_dim

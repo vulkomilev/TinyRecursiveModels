@@ -25,7 +25,7 @@ class Params(object):   # NOTE: shared across all modules
         self.timestamp   = "17080800"   # "yymmdd##"
         # training configuration
         self.mode        = 1            # 1(train) | 2(test model_file)
-        self.config      = 1 
+        self.config      = 2
 
         self.seed        = 1
         self.render      = False        # whether render the window from the original envs or not
@@ -145,18 +145,18 @@ class CircuitParams(Params):# settings for network architecture
         self.output_dim     = None  # set after env
 
         if self.circuit_type == "ntm":
-            self.hidden_dim      = 512#512
-            self.num_write_heads = 1
-            self.num_read_heads  = 1
-            self.mem_hei         = 2#128
-            self.mem_wid         = 5#20
+            self.hidden_dim      = 64*97#512
+            self.num_write_heads = 10
+            self.num_read_heads  = 10
+            self.mem_hei         = 10
+            self.mem_wid         = 97
             self.clip_value      = 20.   # clips controller and circuit output values to in between
         elif self.circuit_type == "dnc":
-            self.hidden_dim      = 512
-            self.num_write_heads = 1
+            self.hidden_dim      = 64*97
+            self.num_write_heads = 4
             self.num_read_heads  = 4
-            self.mem_hei         = 16
-            self.mem_wid         = 16
+            self.mem_hei         = 10
+            self.mem_wid         = 10
             self.clip_value      = 20.   # clips controller and circuit output values to in between
 
         self.controller_params = ControllerParams()
@@ -172,7 +172,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
                 self.optim          = optim.RMSprop
 
                 self.steps          = 100000    # max #iterations
-                self.batch_size     = 48*97 #768*97
+                self.batch_size     = 97#768*97
                 self.early_stop     = None      # max #steps per episode
                 self.clip_grad      = 50.
                 self.lr             = 1e-4
@@ -187,7 +187,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
                 self.optim          = optim.RMSprop
 
                 self.steps          = 100000    # max #iterations
-                self.batch_size     = 20
+                self.batch_size     = 97
                 self.early_stop     = None      # max #steps per episode
                 self.clip_grad      = 50.
                 self.lr             = 1e-4

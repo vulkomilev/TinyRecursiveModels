@@ -1,10 +1,12 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+import visdom
 
 from ...utils.fake_ops import fake_cumprod
 from ...core.heads.dynamic_head import DynamicHead
@@ -31,9 +33,16 @@ class DynamicWriteHead(DynamicHead):
         # reset
         self._reset()
 
+    def _reset_visual(self):
+        self.vis = visdom.Visdom()
+
     def visual(self):
         if self.visualize:      # here we visualize the wl_curr of the first batch
-            self.win_head = self.vis.heatmap(self.wl_curr_vb.data[0].clone().cpu().transpose(0, 1).numpy(), env=self.refs, win=self.win_head, opts=dict(title="write_head"))
+            #            val = self.wl_curr_vb.data[0].clone().cpu().transpose(0, 1).float().numpy()
+
+                #val = self.wl_curr_vb.data[0].clone().cpu().transpose(0, 1).float().numpy()
+                #val = torch.tensor(val, device="cuda:0")
+            self.win_head = self.vis.heatmap(self.wl_curr_vb.data[0].clone().cpu().transpose(0, 1).float().numpy().tolist(), env=self.refs, win=self.win_head, opts=dict(title="write_head")) #self.vis.heatmap(val, env=self.refs, win=self.win_head, opts=dict(title="write_head"))
 
     def _update_usage(self, prev_usage_vb):
         """
@@ -68,7 +77,7 @@ class DynamicWriteHead(DynamicHead):
         # NOTE: we sort usage in ascending order
         sorted_usage_vb, indices_vb = torch.topk(usage_vb, k=self.mem_hei, dim=1, largest=False)
         # to imitate tf.cumrprod(exclusive=True) https://discuss.pytorch.org/t/cumprod-exclusive-true-equivalences/2614/8
-        cat_sorted_usage_vb = torch.cat((Variable(torch.ones(self.batch_size, 1)).type(self.dtype), sorted_usage_vb), 1)[:, :-1]
+        cat_sorted_usage_vb = torch.cat((Variable(torch.ones(self.batch_size, 1)).type(self.dtype).to("cuda:0"), sorted_usage_vb), 1)[:, :-1]
         # TODO: seems we have to wait for this PR: https://github.com/pytorch/pytorch/pull/1439
         prod_sorted_usage_vb = fake_cumprod(cat_sorted_usage_vb)
         # prod_sorted_usage_vb = torch.cumprod(cat_sorted_usage_vb, dim=1) # TODO: use this once the PR is ready
@@ -134,6 +143,7 @@ class DynamicWriteHead(DynamicHead):
 
     def forward(self, hidden_vb, memory_vb, usage_vb):
         # content focus
+
         super(DynamicWriteHead, self).forward(hidden_vb, memory_vb)
         # location focus
         self.alloc_gate_vb = F.sigmoid(self.hid_2_alloc_gate(hidden_vb)).view(-1, self.num_heads, 1)
@@ -143,6 +153,10 @@ class DynamicWriteHead(DynamicHead):
         # access
         self.erase_vb = F.sigmoid(self.hid_2_erase(hidden_vb)).view(-1, self.num_heads, self.mem_wid)
         self.add_vb   = F.tanh(self.hid_2_add(hidden_vb)).view(-1, self.num_heads, self.mem_wid)
+        #print("memory_vb", torch.argmax(memory_vb, dim=-1))
+        #print("memory_vb", memory_vb.shape)
+        #exit(0)
+        #torch.argmax(memory_vb, dim=-1)
         return self._access(memory_vb)
 
     def _update_link(self, prev_link_vb, prev_preced_vb):
@@ -171,7 +185,7 @@ class DynamicWriteHead(DynamicHead):
         link_vb = prev_link_scale_vb * prev_link_vb + new_link_vb
         # Return the link with the diagonal set to zero, to remove self-looping edges.
         # TODO: set diag as 0 if there's a specific method to do that w/ later releases
-        diag_mask_vb = Variable(1 - torch.eye(self.mem_hei).unsqueeze(0).unsqueeze(0).expand_as(link_vb)).type(self.dtype)
+        diag_mask_vb = Variable(1 - torch.eye(self.mem_hei).unsqueeze(0).unsqueeze(0).expand_as(link_vb).to(device="cuda:0")).type(self.dtype)
         link_vb = link_vb * diag_mask_vb
         return link_vb
 
