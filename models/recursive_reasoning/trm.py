@@ -289,7 +289,7 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
 
         # Input encoding
         input_embeddings = self._input_embeddings(batch["inputs"], batch["puzzle_identifiers"])
-        #print(    "input_embeddings",input_embeddings.shape)
+        #print(    "batch",batch["inputs"])#.shape)
         # Forward iterations
         it = 0
         #print('point 1')

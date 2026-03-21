@@ -21,10 +21,10 @@ class DataProcessConfig(BaseModel):
     test_set_name: str
     test_set_name2: str = "your_test_set"
     seed: int = 42
-    num_aug: int = 1000
+    num_aug: int = 0#1000
     puzzle_identifiers_start: int = 1 # start > 1 to handle multiple datasets
     
-ARCMaxGridSize = 30
+ARCMaxGridSize = 8#30
 ARCAugmentRetriesFactor = 5
 
 PuzzleIdSeparator = "|||"
@@ -133,7 +133,6 @@ def convert_single_arc_puzzle(results: dict, name: str, puzzle: dict, aug_count:
         converted[dest].examples.extend([(arc_grid_to_np(example["input"]), arc_grid_to_np(example["output"])) for example in examples])
 
     group = [converted]
-    
     # Augment
     if aug_count > 0:
         hashes = {puzzle_hash(converted)}
@@ -266,8 +265,11 @@ def convert_dataset(config: DataProcessConfig):
                     # Push puzzle
                     no_aug_id = np.random.randint(0, len(puzzle.examples))
                     for _idx_ex, (inp, out) in enumerate(puzzle.examples):
+                        #print("inp1",inp)
+                        #print("out2",out)
                         inp, out = np_grid_to_seq_translational_augment(inp, out, do_translation=enable_translational_augment and _idx_ex != no_aug_id)
-                            
+                        #print("inp",inp)
+                        #print("out",out)
                         results["inputs"].append(inp)
                         results["labels"].append(out)
                         example_id += 1

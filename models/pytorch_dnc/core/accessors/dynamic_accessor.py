@@ -78,6 +78,13 @@ class DynamicAccessor(Accessor):
           print('1111')
           self.win_head = self.vis.heatmap(self.show_hidden_vb.data.clone().cpu().transpose(0, 1).float().numpy().tolist(), env=self.refs, win=self.win_head, opts=dict(title="hidden_vb")) #self.vis.heatmap(val, env=self.refs, win=self.win_head, opts=dict(title="write_head"))
 
+    def _symbolic_processing(self,memory):
+        for b_n in range(len(memory)):
+            a = memory[b_n][0]
+            b = memory[b_n][1]
+            memory[b_n][3] = a + b
+        return memory
+
     def forward(self, hidden_vb):
         # 1. first we update the usage using the read/write weights from {t-1}
         #print("1.5.1.1")
@@ -88,12 +95,14 @@ class DynamicAccessor(Accessor):
         #print("1.5.1.2")
         self.usage_vb = self.read_heads._update_usage(hidden_vb, self.usage_vb)
 
-        #self.memory.memory_vb = self.symbolic_logic.forward(self.memory.memory_vb)
-
+        self.memory.memory_vb = self.symbolic_logic.forward(self.memory.memory_vb)
+        
         #print("1.5.1.3")
         # 2. then write to memory_{t-1} to get memory_{t}
         self.memory.memory_vb = self.write_heads.forward(hidden_vb, self.memory.memory_vb, self.usage_vb)
         #print("1.5.1.4")
+        #my idea memory symbolic intervetion
+        #self.memory.memory_vb = self._symbolic_processing(self.memory.memory_vb)
         # 3. then we update the temporal link
         self.link_vb, self.preced_vb = self.write_heads._temporal_link(self.link_vb, self.preced_vb)
         #print("1.5.1.5")

@@ -31,7 +31,7 @@ from models.ema import EMAHelper
 from torch.utils.tensorboard import SummaryWriter
 
 
-LOG = False
+LOG = True
 VISDOM = True
 
 class LossConfig(pydantic.BaseModel):
@@ -399,7 +399,8 @@ def evaluate(
                 inference_steps += 1
 
                 if all_finish:
-                    break
+                    break 
+            
             # writer = SummaryWriter()
             # writer.add_graph(train_state.model,  [carry,batch, return_keys])
             # writer.close()
@@ -587,10 +588,10 @@ def launch(hydra_config: DictConfig):
     except:
         print("NO EVAL DATA FOUND")
         eval_loader = eval_metadata = None
-
     try:
         evaluators = create_evaluators(config, eval_metadata)
-    except:
+    except Exception as e:
+        print(e)
         print("No evaluator found")
         evaluators = []
 
@@ -604,7 +605,8 @@ def launch(hydra_config: DictConfig):
     if RANK == 0:
         progress_bar = tqdm.tqdm(total=train_state.total_steps)
         if LOG:
-            wandb.init(project=config.project_name, name=config.run_name, config=config.model_dump(), settings=wandb.Settings(_disable_stats=True))  # type: ignore
+            wandb.init(project=config.project_name, name="no_addition_from_ntm", config=config.model_dump(), notes= 'with ntm but without symbolic kernel and without the addition from ntm in the last layer', settings=wandb.Settings(_disable_stats=True))  # type: ignore
+
             wandb.log({"num_params": sum(x.numel() for x in train_state.model.parameters())}, step=0)
             save_code_and_config(config)
     if config.ema:
@@ -622,7 +624,10 @@ def launch(hydra_config: DictConfig):
         
         train_state.model.train()
         for set_name, batch, global_batch_size in train_loader:
-        
+            #print("set_name, , global_batch_size",set_name , global_batch_size)
+            #for key in list(batch.keys()):
+            #    print(key,batch[key])
+
             metrics = train_batch(config, train_state, batch, global_batch_size, rank=RANK, world_size=WORLD_SIZE)
 
             if RANK == 0 and metrics is not None:

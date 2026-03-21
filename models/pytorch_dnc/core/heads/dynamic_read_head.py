@@ -50,7 +50,8 @@ class DynamicReadHead(DynamicHead):
         #print("hidden_vb",hidden_vb.shape)
         self.free_gate_vb = F.sigmoid(self.hid_2_free_gate(hidden_vb)).view(-1, self.num_heads, 1)
         #print("F.sigmoid(self.hid_2_free_gate(hidden_vb))",F.sigmoid(self.hid_2_free_gate(hidden_vb)).shape)
-
+        #print("self.free_gate_vb.",self.free_gate_vb.shape) 
+        #print("self.wl_prev_vb",self.wl_prev_vb.shape)
         free_read_weights_vb = self.free_gate_vb.expand_as(self.wl_prev_vb) * self.wl_prev_vb
         psi_vb = torch.prod(1. - free_read_weights_vb, 1)
         return prev_usage_vb * psi_vb

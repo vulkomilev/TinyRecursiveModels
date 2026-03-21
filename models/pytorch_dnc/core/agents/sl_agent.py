@@ -11,6 +11,8 @@ import torch.nn.functional as F
 from ...utils.helpers import Experience
 from ...core.agent import Agent
 
+BATCH_SIZE = 80
+
 class SLAgent(Agent):   # for supervised learning tasks
     def __init__(self, args, env_prototype, circuit_prototype):
         super(SLAgent, self).__init__(args, env_prototype, circuit_prototype)
@@ -26,7 +28,7 @@ class SLAgent(Agent):   # for supervised learning tasks
         self.circuit_params = args.circuit_params
         self.circuit_params.batch_size = args.batch_size
         self.circuit_params.input_dim = self.state_shape
-        self.circuit_params.output_dim = 64*97 #to match the dimensionality of the trm # self.action_dim
+        self.circuit_params.output_dim = 64*BATCH_SIZE #to match the dimensionality of the trm # self.action_dim
         self.circuit = self.circuit_prototype(self.circuit_params)
         self.circuit =  self.circuit.to("cuda")
         self._load_model(self.model_file)   # load pretrained circuit if provided

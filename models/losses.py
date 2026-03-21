@@ -60,7 +60,6 @@ class ACTLossHead(nn.Module):
         new_carry, outputs = self.model(**model_kwargs)
         labels = new_carry.current_data["labels"]
         #print("outputs['logits']",torch.argmax(outputs["logits"], dim=-1))#.)
-        #exit(0)
         with torch.no_grad():
             # Preds
             outputs["preds"] = torch.argmax(outputs["logits"], dim=-1)
@@ -69,7 +68,6 @@ class ACTLossHead(nn.Module):
             mask = (labels != IGNORE_LABEL_ID)
             loss_counts = mask.sum(-1)
             loss_divisor = loss_counts.clamp_min(1).unsqueeze(-1)  # Avoid NaNs in division
-
             is_correct = mask & (torch.argmax(outputs["logits"], dim=-1) == labels)
             seq_is_correct = is_correct.sum(-1) == loss_counts
             

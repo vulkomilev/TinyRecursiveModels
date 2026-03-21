@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+BATCH_SIZE = 80     
 
 class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a custom rnn cell
     def __init__(self, args):
@@ -79,13 +80,15 @@ class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a 
 
     def forward_no_controller(self, input_vb):
         #print('input_vb',input_vb.shape)
-        input_vb = torch.reshape(input_vb, ( -1,97* 64))
+        input_vb = torch.reshape(input_vb, ( -1,BATCH_SIZE* 64))
                 #     #with torch.no_grad():
         self.read_vec_vb = self.accessor.forward(input_vb)
         
         if self.training:
         #   with torch.no_grad():
               self.accessor.visual()
+        #print('input_vb',input_vb.shape)
+        #print('self.read_vec_vb',self.read_vec_vb.shape)
         output_vb = self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim),
                                                         self.read_vec_vb.view(-1, self.read_vec_dim)), 1))
         return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(int(self.batch_size), int(self.batch_size), 64)

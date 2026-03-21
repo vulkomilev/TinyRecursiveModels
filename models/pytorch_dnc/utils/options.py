@@ -9,6 +9,8 @@ import torch.optim as optim
 
 from  ..utils.helpers import loggerConfig #..utils.helpers import loggerConfig
 
+BATCH_SIZE = 80
+
 CONFIGS = [
 # agent_type, env_type,      game, circuit_type
 [ "empty",    "repeat-copy", "",   "none"      ],  # 0
@@ -145,18 +147,18 @@ class CircuitParams(Params):# settings for network architecture
         self.output_dim     = None  # set after env
 
         if self.circuit_type == "ntm":
-            self.hidden_dim      = 64*97#512
+            self.hidden_dim      = 64*BATCH_SIZE#512
             self.num_write_heads = 10
             self.num_read_heads  = 10
             self.mem_hei         = 10
-            self.mem_wid         = 97
+            self.mem_wid         = BATCH_SIZE
             self.clip_value      = 20.   # clips controller and circuit output values to in between
         elif self.circuit_type == "dnc":
-            self.hidden_dim      = 64*97
+            self.hidden_dim      = 64*BATCH_SIZE
             self.num_write_heads = 4
             self.num_read_heads  = 4
-            self.mem_hei         = 10
-            self.mem_wid         = 10
+            self.mem_hei         = 8
+            self.mem_wid         = 8
             self.clip_value      = 20.   # clips controller and circuit output values to in between
 
         self.controller_params = ControllerParams()
@@ -172,7 +174,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
                 self.optim          = optim.RMSprop
 
                 self.steps          = 100000    # max #iterations
-                self.batch_size     = 97#768*97
+                self.batch_size     = BATCH_SIZE#768*97
                 self.early_stop     = None      # max #steps per episode
                 self.clip_grad      = 50.
                 self.lr             = 1e-4
@@ -187,7 +189,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
                 self.optim          = optim.RMSprop
 
                 self.steps          = 100000    # max #iterations
-                self.batch_size     = 97
+                self.batch_size     = BATCH_SIZE
                 self.early_stop     = None      # max #steps per episode
                 self.clip_grad      = 50.
                 self.lr             = 1e-4
