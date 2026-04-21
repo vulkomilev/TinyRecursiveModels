@@ -10,6 +10,7 @@ from ...core.accessor import Accessor
 from ...core.heads.dynamic_write_head import DynamicWriteHead as WriteHead
 from ...core.heads.dynamic_read_head import DynamicReadHead as ReadHead
 from ...core.memory import External2DMemory as ExternalMemory
+#from pretrain import run
 import visdom
 
 class DynamicAccessor(Accessor):
@@ -75,7 +76,7 @@ class DynamicAccessor(Accessor):
         else:
             self.show_hidden_vb = self.hidden_vb
         if not self.training:
-          print('1111')
+
           self.win_head = self.vis.heatmap(self.show_hidden_vb.data.clone().cpu().transpose(0, 1).float().numpy().tolist(), env=self.refs, win=self.win_head, opts=dict(title="hidden_vb")) #self.vis.heatmap(val, env=self.refs, win=self.win_head, opts=dict(title="write_head"))
 
     def _symbolic_processing(self,memory):
@@ -95,7 +96,7 @@ class DynamicAccessor(Accessor):
         #print("1.5.1.2")
         self.usage_vb = self.read_heads._update_usage(hidden_vb, self.usage_vb)
 
-        self.memory.memory_vb = self.symbolic_logic.forward(self.memory.memory_vb)
+        #self.memory.memory_vb = self.symbolic_logic.forward(self.memory.memory_vb)
         
         #print("1.5.1.3")
         # 2. then write to memory_{t-1} to get memory_{t}
@@ -109,4 +110,17 @@ class DynamicAccessor(Accessor):
         # 4. then read from memory_{t} to get read_vec_{t}
         read_vec_vb = self.read_heads.forward(hidden_vb, self.memory.memory_vb, self.link_vb, self.write_head_params.num_heads)
         #print("1.5.1.6")
-        return read_vec_vb
+
+        #import wandb
+        #hidden_vb = torch.add (hidden_vb , 1)
+        #hidden_vb = torch.mul (hidden_vb , 5)
+        #hidden_vb +=1
+        #hidden_vb *=5
+        #hidden_vb = torch.div(torch.pow(hidden_vb,2),5)
+        #hidden_vb = (hidden_vb**2)/5
+       
+        #hidden_vb = torch.div (hidden_vb , 5)
+        #hidden_vb = torch.sub (hidden_vb , 1)
+        #hidden_vb -=5
+        #hidden_vb /=5
+        return read_vec_vb#[:6400]

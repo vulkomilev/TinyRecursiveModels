@@ -307,12 +307,13 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
                     z_L = self.L_level(z_L, z_H + input_embeddings, **seq_info)
                     #print('point 1.3')
                 #print('point 1.4')
+                z_H = self.agent.circuit.forward_no_controller(z_H)
                 z_H = self.L_level(z_H, z_L, **seq_info)
                 #print("z_H.shape",z_H.shape)
                 #print('point 1.5')
-                #print("z_H.shape1",z_H.shape)
+                #print("z_H.shape1",torch.max(z_H))
                 #My research
-                z_H = self.agent.circuit.forward_no_controller(z_H)
+               
                 #print("z_H.shape2",z_H.shape)
                 #print('point 1.6')
                 #print("z_H.shape",z_H.shape)
@@ -322,9 +323,9 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
             z_L = self.L_level(z_L, z_H + input_embeddings, **seq_info)
         #print('point 3')
         #print("z_H.shape",z_H.shape)
+        z_H = self.agent.circuit.forward_no_controller(z_H)
         z_H = self.L_level(z_H, z_L, **seq_info)
 
-        z_H = self.agent.circuit.forward_no_controller(z_H)
 
         #print('point 3')
         # LM Outputs

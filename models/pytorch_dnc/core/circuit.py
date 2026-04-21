@@ -5,6 +5,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+import visdom
+import matplotlib.pyplot as plt 
+import copy
 BATCH_SIZE = 80     
 
 class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a custom rnn cell
@@ -25,11 +28,12 @@ class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a 
         self.mem_hei = args.mem_hei
         self.mem_wid = args.mem_wid
         self.clip_value = args.clip_value
-
+        self.img_counter = 0
+        self.input_vb = 'input_vb'
         # functional components
         self.controller_params = args.controller_params
         self.accessor_params = args.accessor_params
-
+        self.vis = visdom.Visdom()
         # now we fill in the missing values for each module
         self.read_vec_dim = self.num_read_heads * self.mem_wid
         # controller
@@ -72,26 +76,59 @@ class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a 
         self.type(self.dtype)
         self.print_model()
         # reset internal states
-        self.read_vec_ts = torch.zeros(self.batch_size, self.read_vec_dim).fill_(1e-6)
+        self.read_vec_ts = torch.zeros(self.batch_size, self.num_read_heads,self.output_dim).fill_(1e-6)
         self._reset_states()
     def reset_visual(self):
         pass
         #self.accessor.reset_visual()
-
-    def forward_no_controller(self, input_vb):
-        #print('input_vb',input_vb.shape)
-        input_vb = torch.reshape(input_vb, ( -1,BATCH_SIZE* 64))
-                #     #with torch.no_grad():
-        self.read_vec_vb = self.accessor.forward(input_vb)
+    @torch._dynamo.disable
+    def tricky_numpy_logic(self,data):
+         plt.figure(figsize=(12, 8))
+         plt.imshow(data.clone().cpu().float().numpy().tolist())
+         plt.savefig("./image_data/"+str(self.img_counter)+".png",dpi=300)
+         self.img_counter +=1
         
+       
+    def forward_no_controller(self, input_vb):
+        input_vb_reshaped = torch.reshape(torch.clone(input_vb), ( -1,BATCH_SIZE* 64))
+                #     #with torch.no_grad():
+        #print(input_vb_reshaped.data[:80,:80].clone().cpu().float().numpy().shape)
+        #print('point 1')
+        #input_vb_reshaped.clone().cpu().float().numpy()
+        
+        self.read_vec_vb = self.accessor.forward(input_vb_reshaped)
+        shape_1 = input_vb.shape[0]
+        shape_2 = input_vb.shape[1]
+        self.tricky_numpy_logic(input_vb_reshaped)
         if self.training:
-        #   with torch.no_grad():
+           with torch.no_grad():
+              
+
               self.accessor.visual()
-        #print('input_vb',input_vb.shape)
+        #print("self.read_vec_vb.view(-1, self.read_vec_dim))",self.read_vec_vb.view(-1, self.read_vec_dim).expand(shape_1,shape_2, -1).shape)
         #print('self.read_vec_vb',self.read_vec_vb.shape)
-        output_vb = self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim),
-                                                        self.read_vec_vb.view(-1, self.read_vec_dim)), 1))
-        return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(int(self.batch_size), int(self.batch_size), 64)
+        # torch.Size([80, 80, 64])
+        #torch.cat((input_vb,
+        #                                                torch.zeros_like(self.read_vec_vb.view(-1, self.read_vec_dim))), 1)
+        #print("22222222222222",self.read_vec_vb.shape)
+        #print("self.read_vec_dim",self.read_vec_dim)
+        #print("input_vb",input_vb.shape) 
+        #print("shape_1,shape_2",shape_1,shape_2)
+        #print("self.read_vec_vb.view(-1, self.read_vec_dim)",self.read_vec_vb.view(-1, self.read_vec_dim).shape)
+
+        #print("self.read_vec_vb.view(-1, self.read_vec_dim)",self.read_vec_vb.view(-1, self.read_vec_dim).expand(shape_1,shape_2, -1).shape)
+        #print(torch.cat((input_vb,
+        #                                                self.read_vec_vb.view(-1, self.read_vec_dim).expand(shape_1,shape_2, -1)), 2).shape)
+        #print(torch.cat((input_vb,
+        #                                                self.read_vec_vb.view(-1, self.read_vec_dim).reshape(shape_1,shape_2, -1)), 2).shape)
+
+        #output_vb = self.hid_to_out(torch.cat((input_vb,
+        #                                                self.read_vec_vb.view(-1, self.read_vec_dim).reshape(shape_1,shape_2, -1)), 2))
+       
+        output_vb = self.hid_to_out(input_vb)#.view(-1, self.hidden_dim))
+        self.input_vb = self.vis.heatmap(input_vb_reshaped.data[:80,:80].clone().cpu().detach().float().numpy().tolist(), env="daim_17080800", win=self.input_vb, opts=dict(title="input_vb")) #self.vis.heatmap(val, env=self.refs, win=self.win_head, opts=dict(title="write_head"))
+
+        return output_vb #torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value).view(int(self.batch_size), int(self.batch_size), 64) #F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(int(self.batch_size), int(self.batch_size), 64)
         #print("(1, int(self.batch_size), self.output_dim)",(1, int(self.batch_size), self.output_dim))
         # if not self.training:
         #     #with torch.no_grad():

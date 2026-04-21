@@ -31,8 +31,9 @@ from models.ema import EMAHelper
 from torch.utils.tensorboard import SummaryWriter
 
 
-LOG = True
+LOG = False
 VISDOM = True
+
 
 class LossConfig(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra='allow')
@@ -91,6 +92,7 @@ class PretrainConfig(pydantic.BaseModel):
     ema: bool = False # use Exponential-Moving-Average
     ema_rate: float = 0.999 # EMA-rate
     freeze_weights: bool = False # If True, freeze weights and only learn the embeddings
+
 
 @dataclass
 class TrainState:
@@ -553,7 +555,7 @@ def launch(hydra_config: DictConfig):
     RANK = 0
     WORLD_SIZE = 1
     CPU_PROCESS_GROUP = None
-
+    global run
     # Initialize distributed training if in distributed environment (e.g. torchrun)
     if "LOCAL_RANK" in os.environ:
         # Initialize distributed, default device and dtype
@@ -605,14 +607,14 @@ def launch(hydra_config: DictConfig):
     if RANK == 0:
         progress_bar = tqdm.tqdm(total=train_state.total_steps)
         if LOG:
-            wandb.init(project=config.project_name, name="no_addition_from_ntm", config=config.model_dump(), notes= 'with ntm but without symbolic kernel and without the addition from ntm in the last layer', settings=wandb.Settings(_disable_stats=True))  # type: ignore
-
+            wandb.init(project=config.project_name, name="using complex 1 ", config=config.model_dump(), notes= 'using complex 1 with complec 1 logic inside the dnc no memory', settings=wandb.Settings(_disable_stats=True))  # type: ignore
             wandb.log({"num_params": sum(x.numel() for x in train_state.model.parameters())}, step=0)
             save_code_and_config(config)
     if config.ema:
         print('Setup EMA')
         ema_helper = EMAHelper(mu=config.ema_rate)
         ema_helper.register(train_state.model)
+
 
     # Training Loop
     for _iter_id in range(total_iters):
@@ -627,7 +629,6 @@ def launch(hydra_config: DictConfig):
             #print("set_name, , global_batch_size",set_name , global_batch_size)
             #for key in list(batch.keys()):
             #    print(key,batch[key])
-
             metrics = train_batch(config, train_state, batch, global_batch_size, rank=RANK, world_size=WORLD_SIZE)
 
             if RANK == 0 and metrics is not None:
@@ -683,4 +684,13 @@ def launch(hydra_config: DictConfig):
 
 if __name__ == "__main__":
     launch()
-    
+    # sweep_configuration = {
+    # "method": "random",
+    # "metric": {"goal": "minimize", "name": "all.lm_loss"},
+    # "parameters": {
+    #     "add_val": {"max": 2.0, "min": 0.01}
+    # },
+    # }
+    # sweep_id = wandb.sweep(sweep=sweep_configuration, project="add-sweep")
+
+    # wandb.agent(sweep_id, function=launch, count=100)

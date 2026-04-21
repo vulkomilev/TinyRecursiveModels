@@ -3,6 +3,7 @@ import inspect
 
 
 def load_model_class(identifier: str, prefix: str = "models."):
+
     module_path, class_name = identifier.split('@')
 
     # Import the module

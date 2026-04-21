@@ -17,6 +17,7 @@ class DynamicWriteHead(DynamicHead):
         # params
         if self.visualize:
             self.win_head = "win_write_head"
+            self.inp_head = "win_input"
 
         # buid model: add additional outs for write
         # for location focus: dynamic allocation
@@ -43,7 +44,7 @@ class DynamicWriteHead(DynamicHead):
                 #val = self.wl_curr_vb.data[0].clone().cpu().transpose(0, 1).float().numpy()
                 #val = torch.tensor(val, device="cuda:0")
             self.win_head = self.vis.heatmap(self.wl_curr_vb.data[0].clone().cpu().transpose(0, 1).float().numpy().tolist(), env=self.refs, win=self.win_head, opts=dict(title="write_head")) #self.vis.heatmap(val, env=self.refs, win=self.win_head, opts=dict(title="write_head"))
-
+            self.inp_head = self.vis.heatmap(self.wl_curr_vb.data[0].clone().cpu().transpose(0, 1).float().numpy().tolist(), env=self.refs, win=self.inp_head, opts=dict(title="input")) 
     def _update_usage(self, prev_usage_vb):
         """
         calculates the new usage after writing to memory
@@ -146,6 +147,7 @@ class DynamicWriteHead(DynamicHead):
 
         super(DynamicWriteHead, self).forward(hidden_vb, memory_vb)
         # location focus
+        self.hidden_vb = hidden_vb
         self.alloc_gate_vb = F.sigmoid(self.hid_2_alloc_gate(hidden_vb)).view(-1, self.num_heads, 1)
         self.write_gate_vb = F.sigmoid(self.hid_2_write_gate(hidden_vb)).view(-1, self.num_heads, 1)
         self._location_focus(usage_vb)

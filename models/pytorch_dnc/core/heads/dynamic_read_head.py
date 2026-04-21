@@ -12,6 +12,7 @@ class DynamicReadHead(DynamicHead):
     def __init__(self, args):
         super(DynamicReadHead, self).__init__(args)
         # params
+        print("self.visualize",self.visualize)
         if self.visualize:
             self.win_head = "win_read_head"
         # dynamic-accessor-specific params

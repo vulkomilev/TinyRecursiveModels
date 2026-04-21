@@ -44,6 +44,21 @@ def add_one(input):
                 output[i][j] +=1
     return output
 
+@torch.compile
+def complex_1(input):
+    output = copy.deepcopy(input) #:)
+    for i in range(len(input)):
+       for j in range(len(input[i])):
+            input[i][j] = int((input[i][j]**2)/5)
+    for i in range(len(input)):
+       for j in range(len(input[i])):
+           if input[i][j] >  9:
+               input[i][j] = 9
+           if input[i][j] <  0:
+               input[i][j] = 0
+    return output
+
+
 class SymbolicLogic(nn.Module):
     def __init__(self):
         super(SymbolicLogic, self).__init__()
@@ -96,7 +111,7 @@ class SymbolicLogic(nn.Module):
     def generate_challenge(self,height,width):
         input =  [[]]*width
         
-        function_list = [add_one]
+        function_list = [add_one,complex_1]
 
         for i in range(len(input)):
             input[i] = [0]*height
