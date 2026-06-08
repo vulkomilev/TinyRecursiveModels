@@ -8,13 +8,12 @@ from xml.parsers.expat import model
 import yaml
 import shutil
 import copy
-
+from bertviz import model_view
 import torch
 import torch.distributed as dist
 from torch import nn
 from torch.utils.data import DataLoader
 from torchviz import make_dot
-
 import tqdm
 import wandb
 import coolname
@@ -24,6 +23,7 @@ from omegaconf import DictConfig
 #from adam_atan2_pytorch import AdamAtan2
 from adam_atan2_pytorch import AdamAtan2
 
+from torchview import draw_graph
 from puzzle_dataset import PuzzleDataset, PuzzleDatasetConfig, PuzzleDatasetMetadata
 from utils.functions import load_model_class, get_model_source_path
 from models.sparse_embedding import CastedSparseEmbeddingSignSGD_Distributed
@@ -31,8 +31,9 @@ from models.ema import EMAHelper
 from torch.utils.tensorboard import SummaryWriter
 
 
-LOG = False
+LOG = True
 VISDOM = True
+is_init = False
 
 
 class LossConfig(pydantic.BaseModel):
@@ -156,6 +157,8 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
                     dist.broadcast(param, src=0)
 
     # Optimizers and lr
+    print("config.arch.puzzle_emb_ndim",config.arch.puzzle_emb_ndim)
+    print("config.freeze_weights",config.freeze_weights)
     if config.arch.puzzle_emb_ndim == 0:
         optimizers = [
             AdamAtan2(
@@ -188,13 +191,26 @@ def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, 
                 weight_decay=config.puzzle_emb_weight_decay,
                 world_size=world_size
             ),
+            #AdamAtan2(
+            #    model.parameters(),
+            #    lr=0.1,  # Needs to be set by scheduler
+            #    weight_decay=config.weight_decay,
+            #    betas=(config.beta1, config.beta2)
+            #),
             AdamAtan2(
                 model.parameters(),
-                lr=0.1,  # Needs to be set by scheduler
+                lr=config.lr,  # Needs to be set by scheduler
                 weight_decay=config.weight_decay,
                 betas=(config.beta1, config.beta2)
             )
+
+            # torch.optim.Muon(
+            #    params=model.parameters(),
+            #    lr=0.1,  # Needs to be set by scheduler
+            #    weight_decay=config.weight_decay
+            #)
         ]
+
         optimizer_lrs = [
             config.puzzle_emb_lr,
             config.lr
@@ -293,7 +309,7 @@ def create_evaluators(config: PretrainConfig, eval_metadata: PuzzleDatasetMetada
             cls = load_model_class(cfg.name, "evaluators.")(
                 data_path=data_path, eval_metadata=eval_metadata, **cfg.__pydantic_extra__
             )  # type: ignore
-            evaluators.append(cls)
+            evaluators.append(cls.item())
 
     return evaluators
 
@@ -312,9 +328,11 @@ def train_batch(config: PretrainConfig, train_state: TrainState, batch: Any, glo
 
     # Forward
 
-    train_state.carry, loss, metrics, _, _ = train_state.model(carry=train_state.carry, batch=batch, return_keys=[])
-    ((1 / global_batch_size) * loss).backward()#retain_graph=True )
+    train_state.carry, loss, metrics, _1, _2 = train_state.model(carry=train_state.carry, batch=batch, return_keys=[])
 
+    #exit(0)
+    ((1 / global_batch_size) * loss).backward()#retain_graph=True )
+    #model_view(attention=train_state.carry.current_data['outputs'],tokens= train_state.carry.current_data['labels'])
     # Allreduce
     if world_size > 1:
         for param in train_state.model.parameters():
@@ -417,7 +435,7 @@ def evaluate(
                 for k, v in collection.items():
                     if k in config.eval_save_outputs:
                         save_preds.setdefault(k, [])
-                        save_preds[k].append(v.cpu())  # Move to CPU for saving GPU memory
+                        save_preds[k].append(v.cpu().item())  # Move to CPU for saving GPU memory
 
             for evaluator in evaluators:
                 evaluator.update_batch(batch, preds)
@@ -556,11 +574,13 @@ def launch(hydra_config: DictConfig):
     WORLD_SIZE = 1
     CPU_PROCESS_GROUP = None
     global run
+    global is_init 
+    torch.cuda.memory._record_memory_history()
     # Initialize distributed training if in distributed environment (e.g. torchrun)
-    if "LOCAL_RANK" in os.environ:
+    if "LOCAL_RANK" in os.environ and not is_init:
         # Initialize distributed, default device and dtype
         dist.init_process_group(backend="nccl")
-
+        is_init = True
         RANK = dist.get_rank()
         WORLD_SIZE = dist.get_world_size()
 
@@ -581,6 +601,7 @@ def launch(hydra_config: DictConfig):
     # Dataset
     train_epochs_per_iter = config.eval_interval if config.eval_interval is not None else config.epochs
     total_iters = config.epochs // train_epochs_per_iter
+    print("total_iters",total_iters)
 
     assert config.epochs % train_epochs_per_iter == 0, "Eval interval must be a divisor of total epochs."
 
@@ -596,25 +617,29 @@ def launch(hydra_config: DictConfig):
         print(e)
         print("No evaluator found")
         evaluators = []
-
+   
     # Train state
+    print("wandb.init")
     train_state = init_train_state(config, train_metadata, rank=RANK, world_size=WORLD_SIZE)
+    if LOG:
+            wandb.init(project=config.project_name, name="using complex 1 full logic", config=config.model_dump(), notes= 'I have feeded the context layer inside the symbolic logic' \
+            ' used to generate the dataset and after that I have concatinated the results by cutting the resutls. Now I am adding the contect layer and the result from the logic.Addition is at 1\
+                I have also removed the loop.Now testing just 4 functions to see if they will disturb the training.I have added a masking function to see if this will improve the results because the four functions' \
+                'togheted massively decreased the performance while the single function massively increased it', settings=wandb.Settings(_disable_stats=True))  # type: ignore
+            wandb.log({"num_params": sum(x.numel() for x in train_state.model.parameters())}, step=0)
 
+           # wandb.watch(train_state.model, log="all")
     # Progress bar and logger
     progress_bar = None
     ema_helper = None
 
     if RANK == 0:
         progress_bar = tqdm.tqdm(total=train_state.total_steps)
-        if LOG:
-            wandb.init(project=config.project_name, name="using complex 1 ", config=config.model_dump(), notes= 'using complex 1 with complec 1 logic inside the dnc no memory', settings=wandb.Settings(_disable_stats=True))  # type: ignore
-            wandb.log({"num_params": sum(x.numel() for x in train_state.model.parameters())}, step=0)
-            save_code_and_config(config)
+        save_code_and_config(config)
     if config.ema:
         print('Setup EMA')
         ema_helper = EMAHelper(mu=config.ema_rate)
         ema_helper.register(train_state.model)
-
 
     # Training Loop
     for _iter_id in range(total_iters):
@@ -661,7 +686,7 @@ def launch(hydra_config: DictConfig):
                 rank=RANK, 
                 world_size=WORLD_SIZE,
                 cpu_group=CPU_PROCESS_GROUP)
-
+            
             if LOG:
                 if RANK == 0 and metrics is not None:
                     wandb.log(metrics, step=train_state.step)
@@ -674,7 +699,7 @@ def launch(hydra_config: DictConfig):
             #exit(0)
             if config.ema:
                 del train_state_eval
-
+    #torch.cuda.memory._dump_snapshot("memory_snapshot.pickle")
     # finalize
     if dist.is_initialized():
         dist.destroy_process_group()
@@ -686,11 +711,16 @@ if __name__ == "__main__":
     launch()
     # sweep_configuration = {
     # "method": "random",
-    # "metric": {"goal": "minimize", "name": "all.lm_loss"},
+    # "metric": {"goal": "maximize", "name": "train/accuracy"},
     # "parameters": {
-    #     "add_val": {"max": 2.0, "min": 0.01}
+    #     "lr": {"max": 1.0, "min": 0.0},
+    #     "weight_decay": {"max": 1.0, "min": 0.0},
+    #     "beta1": {"max": 1.0, "min": 0.0},
+    #     "beta2": {"max": 1.0, "min": 0.0}
     # },
     # }
+    # #wandb.init(project="add sweep", name="using complex 1 full logic", config=config.model_dump(), notes= 'I have feeded the context layer inside the symbolic logic' \
+    # #        ' used to generate the dataset and after that I have concatinated the results by cutting the resutls. Now I am adding the contect layer and the result from the logic.Addition is at 1\
+    # #            I have also removed the loop.Now testing just 4 functions to see if they will disturb the training and they did testing a new loss.', settings=wandb.Settings(_disable_stats=True))
     # sweep_id = wandb.sweep(sweep=sweep_configuration, project="add-sweep")
-
     # wandb.agent(sweep_id, function=launch, count=100)

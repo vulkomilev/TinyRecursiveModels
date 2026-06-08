@@ -42,6 +42,7 @@ class ACTLossHead(nn.Module):
     def __init__(self, model: nn.Module, loss_type: str):
         super().__init__()
         self.model = model
+        print("loss_type",loss_type)
         self.loss_fn = globals()[loss_type]
         
     def initial_carry(self, *args, **kwargs):
@@ -86,7 +87,14 @@ class ACTLossHead(nn.Module):
         # Losses
 
         lm_loss = (self.loss_fn(outputs["logits"], labels, ignore_index=IGNORE_LABEL_ID, valid_mask=mask) / loss_divisor).sum()
-        q_halt_loss = F.binary_cross_entropy_with_logits(outputs["q_halt_logits"], seq_is_correct.to(outputs["q_halt_logits"].dtype), reduction="sum")
+        smoothing = 0.99
+
+        targets_seq = seq_is_correct.to(outputs["q_halt_logits"].dtype).float()
+        targets_seq = targets_seq * (1.0 - smoothing) + 0.5 * smoothing
+        #q_halt_loss = F.binary_cross_entropy_with_logits(outputs["q_halt_logits"], seq_is_correct.to(outputs["q_halt_logits"].dtype), reduction="mean")#reduction="sum")
+        #try muon
+        q_halt_loss = F.binary_cross_entropy_with_logits(outputs["q_halt_logits"], targets_seq, reduction="mean")#reduction="sum")
+        
         metrics.update({
             "lm_loss": lm_loss.detach(),
             "q_halt_loss": q_halt_loss.detach(),
@@ -94,8 +102,10 @@ class ACTLossHead(nn.Module):
         # Q continue (bootstrapping target loss); Alexia: This fits Q-learning, but seems totally unecessary
         q_continue_loss = 0
         if "target_q_continue" in outputs:
-            q_continue_loss = F.binary_cross_entropy_with_logits(outputs["q_continue_logits"], outputs["target_q_continue"], reduction="sum")
-
+            #q_continue_loss = F.binary_cross_entropy_with_logits(outputs["q_continue_logits"], outputs["target_q_continue"], reduction="mean")#reduction="sum")
+            targets = outputs["target_q_continue"].float()
+            targets = targets * (1.0 - smoothing) + 0.5 * smoothing
+            q_continue_loss = F.binary_cross_entropy_with_logits(outputs["q_continue_logits"], targets, reduction="mean")#reduction="sum")
             metrics["q_continue_loss"] = q_continue_loss.detach()
         # Filter outputs for return
         detached_outputs = {k: outputs[k].detach() for k in return_keys if k in outputs}

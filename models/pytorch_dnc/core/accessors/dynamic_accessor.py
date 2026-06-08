@@ -4,7 +4,8 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-
+import wandb
+import numpy as np
 from ...core.symbolic_logic import SymbolicLogic
 from ...core.accessor import Accessor
 from ...core.heads.dynamic_write_head import DynamicWriteHead as WriteHead
@@ -34,7 +35,10 @@ class DynamicAccessor(Accessor):
         self.read_heads = ReadHead(self.read_head_params)
         self.symbolic_logic = SymbolicLogic() 
         self.memory = ExternalMemory(self.memory_params)
-
+        self.video_limit = 19999
+        self.video_buffer_hidden_vb = []
+        self.video_buffer_usage_vb_read = []
+        self.video_buffer_usage_vb_write = []
         self._reset()
 
     def reset_visual(self):
@@ -90,12 +94,32 @@ class DynamicAccessor(Accessor):
         # 1. first we update the usage using the read/write weights from {t-1}
         #print("1.5.1.1")
         #self.memory._reset()
+        #print("hidden_vb.detach().cpu().float().numpy().shape",np.expand_dims(hidden_vb.detach().cpu().float().numpy(), axis=0).shape)
+        #np.expand_dims(hidden_vb.detach().cpu().float().numpy(), axis=0)
+        #self.video_buffer_hidden_vb.append(np.pad(np.expand_dims(hidden_vb.detach().cpu().float().numpy(), axis=0), (1, 1), 'edge'))
+        # if len(self.video_buffer_hidden_vb) >self.video_limit:
+        #     print("np.array(self.video_buffer_hidden_vb)",np.array(self.video_buffer_hidden_vb).shape)
+        #     wandb.log({
+        #         "hidden_vb": wandb.Video(np.array(self.video_buffer_hidden_vb))
+        #     })
+        #     self.video_buffer_hidden_vb = []
         self.hidden_vb = hidden_vb
         self.usage_vb = self.write_heads._update_usage(self.usage_vb)
 
+        #self.video_buffer_usage_vb_read.append(np.pad(np.expand_dims(self.usage_vb.detach().cpu().float().numpy(), axis=0), (1, 1), 'edge'))
+        # if len(self.video_buffer_usage_vb_read) >self.video_limit:
+        #     wandb.log({
+        #         "read_usage_vb": wandb.Video(np.array(self.video_buffer_usage_vb_read))
+        #     })
+        #     self.video_buffer_usage_vb_read = []
         #print("1.5.1.2")
         self.usage_vb = self.read_heads._update_usage(hidden_vb, self.usage_vb)
-
+        #self.video_buffer_usage_vb_write.append(np.pad(np.expand_dims(self.usage_vb.detach().cpu().float().numpy(), axis=0), (1, 1), 'edge'))
+        # if len(self.video_buffer_usage_vb_write) >self.video_limit:
+        #     wandb.log({
+        #         "write_usage_vb": wandb.Video(np.array(self.video_buffer_usage_vb_write))
+        #     })
+        #     self.video_buffer_usage_vb_write = []
         #self.memory.memory_vb = self.symbolic_logic.forward(self.memory.memory_vb)
         
         #print("1.5.1.3")

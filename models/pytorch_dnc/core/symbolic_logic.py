@@ -111,7 +111,7 @@ class SymbolicLogic(nn.Module):
     def generate_challenge(self,height,width):
         input =  [[]]*width
         
-        function_list = [add_one,complex_1]
+        function_list = [complex_1]#add_one
 
         for i in range(len(input)):
             input[i] = [0]*height

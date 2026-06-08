@@ -17,8 +17,8 @@ class NTMCircuit(Circuit):
 
         # build model
         self.hid_to_out =         self.mlp = SwiGLUAsym(
-            #input_size=self.output_dim,#self.hidden_dim + self.read_vec_dim,
-            input_size=self.hidden_dim + self.read_vec_dim,
+            input_size=self.output_dim,#self.hidden_dim + self.read_vec_dim,
+            #input_size=self.hidden_dim + self.read_vec_dim,
             hidden_size=self.output_dim,
             expansion=4,
         )   # nn.Linear(self.hidden_dim + self.read_vec_dim, self.output_dim)

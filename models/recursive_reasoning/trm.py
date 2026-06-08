@@ -16,7 +16,9 @@ from ..pytorch_dnc.core.accessors.dynamic_accessor import DynamicAccessor
 from ..pytorch_dnc.utils.options import Params,CircuitParams,Options
 from ..pytorch_dnc.utils.options import Options
 from ..pytorch_dnc.utils.factory import EnvDict, CircuitDict, AgentDict
-
+import wandb
+from pretrain import LOG
+import numpy as np
 
 from torch.profiler import profile, ProfilerActivity, record_function
 
@@ -194,7 +196,8 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
 
         opt = Options()
         #np.random.seed(opt.seed)
-
+        self.z_H_buffer = []
+        self.video_limit = 19999
         # 1. env     (prototype)
         env_prototype     = EnvDict[opt.env_type]
         # 2. circuit (prototype)
@@ -204,8 +207,9 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
                                         env_prototype     = env_prototype,
                                         circuit_prototype = circuit_prototype)
         self.agent.circuit = self.agent.circuit.to('cuda:0')
+
         self.forward_dtype = getattr(torch, self.config.forward_dtype)
-        self.auto_encoder = AutoEncoder(forward_dtype=self.forward_dtype)
+        #self.auto_encoder = AutoEncoder(forward_dtype=self.forward_dtype)
         self.memory = torch.Tensor([[[[0]*500]*11]*(self.config.seq_len + self.config.puzzle_emb_len)]*(self.config.batch_size)).to('cuda:0')
         # I/O
 
@@ -275,6 +279,7 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         )
         
     def reset_carry(self, reset_flag: torch.Tensor, carry: TinyRecursiveReasoningModel_ACTV1InnerCarry):
+
         return TinyRecursiveReasoningModel_ACTV1InnerCarry(
             z_H=torch.where(reset_flag.view(-1, 1, 1), self.H_init, carry.z_H),
             z_L=torch.where(reset_flag.view(-1, 1, 1), self.L_init, carry.z_L),
@@ -313,7 +318,14 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
                 #print('point 1.5')
                 #print("z_H.shape1",torch.max(z_H))
                 #My research
-               
+                #print("np.pad(np.expand_dims(z_H.detach().cpu().float().numpy(), axis=0), (1, 1), 'edge')",np.pad(np.expand_dims(z_H.detach().cpu().float().numpy()[0], axis=0), (1, 1), 'edge').shape)
+                #self.z_H_buffer.append(np.pad(np.expand_dims(z_H.detach().cpu().float().numpy()[0], axis=0), (1, 1), 'edge'))
+                # if len(self.z_H_buffer) >self.video_limit:
+                #     print("np.array(self.z_H_buffer)",np.array(self.z_H_buffer).shape)
+                #     wandb.log({
+                #         "z_H_buffer": wandb.Video(np.array(self.z_H_buffer))
+                #     })
+                #     self.z_H_buffer = []
                 #print("z_H.shape2",z_H.shape)
                 #print('point 1.6')
                 #print("z_H.shape",z_H.shape)
@@ -441,4 +453,5 @@ class TinyRecursiveReasoningModel_ACTV1(nn.Module):
         #print("output_vb",output_vb.shape)
         #exit(0)
         #new_inner_carry.z_H = output_vb
+        #new_current_data["outputs"] = outputs
         return TinyRecursiveReasoningModel_ACTV1Carry(new_inner_carry, new_steps, halted, new_current_data), outputs
