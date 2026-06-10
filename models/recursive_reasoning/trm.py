@@ -148,6 +148,7 @@ class TinyRecursiveReasoningModel_ACTV1Block(nn.Module):
                 expansion=config.expansion,
             )
         else:
+            
             self.self_attn = Attention(
                 hidden_size=config.hidden_size,
                 head_dim=config.hidden_size // config.num_heads,
@@ -195,6 +196,7 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         self.config = config
 
         opt = Options()
+       
         #np.random.seed(opt.seed)
         self.z_H_buffer = []
         self.video_limit = 19999
@@ -293,14 +295,14 @@ class TinyRecursiveReasoningModel_ACTV1_Inner(nn.Module):
         )
 
         # Input encoding
-        input_embeddings = self._input_embeddings(batch["inputs"], batch["puzzle_identifiers"])
+        input_embeddings =batch["inputs"]# self._input_embeddings(batch["inputs"], batch["puzzle_identifiers"])
+
         #print(    "batch",batch["inputs"])#.shape)
         # Forward iterations
         it = 0
         #print('point 1')
         z_H, z_L = carry.z_H, carry.z_L
         # H_cycles-1 without grad
-        
         with torch.no_grad():
            for _H_step in range(self.config.H_cycles-1):
                 for _L_step in range(self.config.L_cycles):

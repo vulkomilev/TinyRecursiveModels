@@ -56,7 +56,14 @@ class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a 
         self.accessor_params.mem_hei = self.mem_hei
         self.accessor_params.mem_wid = self.mem_wid
         self.accessor_params.clip_value = self.clip_value
-        self.mask_input = torch.nn.Linear(64*BATCH_SIZE,64*BATCH_SIZE)
+        self.input_weight_1 = torch.nn.Linear(64*BATCH_SIZE,64*BATCH_SIZE)
+        self.input_weight_2 = torch.nn.Linear(64*BATCH_SIZE,64*BATCH_SIZE)
+        self.input_weight_3 = torch.nn.Linear(64*BATCH_SIZE,64*BATCH_SIZE)
+        self.cat_all = torch.nn.Linear(64*BATCH_SIZE*4,64*BATCH_SIZE)
+        self.softmax_1 = torch.nn.Softmax()
+        self.softmax_2 = torch.nn.Softmax()
+        self.softmax_3 = torch.nn.Softmax()
+        self.multi_func = torch.nn.MultiheadAttention(embed_dim=5120,num_heads=8,batch_first=True)
 
         self.init_wandb = False
 
@@ -99,6 +106,7 @@ class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a 
     def soduko_solver_v1(self, memory_vb_symbolic):
             
             # Determine the number of rows
+            memory_vb_symbolic = torch.reshape (memory_vb_symbolic,(8,8)) #memory_vb_symbolic.reshape(8,8)
             num_rows = memory_vb_symbolic.shape[0]
             
             for i in range(num_rows):
@@ -115,13 +123,13 @@ class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a 
                     counter += 1
                     if j in numbers_present:
                         continue
-                    if counter >= 10:
+                    if counter >= memory_vb_symbolic.shape[0]:
                         break
                     
                     # In-place modification of the tensor
                     memory_vb_symbolic[i][counter] = j
                     
-            return memory_vb_symbolic
+            return torch.reshape (memory_vb_symbolic,(1,64))
     def soduko_solver_v1_no_loop(self, memory_vb_symbolic):
             
         
@@ -193,118 +201,134 @@ class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a 
             self.init_wandb = True
             print("wandb.watch(self.accessor)")
             #wandb.watch(self.accessor)
-        
-        input_vb_reshaped = torch.reshape(torch.clone(input_vb), ( -1,BATCH_SIZE* 64))
-                #     #with torch.no_grad():
-        #print(input_vb_reshaped.data[:80,:80].clone().cpu().float().numpy().shape)
-        #print('point 1')
-        #input_vb_reshaped.clone().cpu().float().numpy()
-        
-        #self.read_vec_vb = self.accessor.forward(input_vb_reshaped)
+        print("input_vb",input_vb.shape)
         shape_1 = input_vb.shape[0]
         shape_2 = input_vb.shape[1]
-        #self.tricky_numpy_logic(input_vb_reshaped)
+        for batch_i in range(shape_1):
+          for seg_i in range(shape_2):
+
+            input_vb_reshaped = input_vb[batch_i,seg_i,:] #torch.reshape(torch.clone(input_vb), ( -1,BATCH_SIZE* 64))
+                    #     #with torch.no_grad():
+            print("input_vb_reshaped",input_vb_reshaped.shape)
+            #print(input_vb_reshaped.data[:80,:80].clone().cpu().float().numpy().shape)
+            #print('point 1')
+            #input_vb_reshaped.clone().cpu().float().numpy()
+            
+            #self.read_vec_vb = self.accessor.forward(input_vb_reshaped)
+
+            #self.tricky_numpy_logic(input_vb_reshaped)
+            
+            #if self.training:
+            #   with torch.no_grad():
+                
         
-        #if self.training:
-        #   with torch.no_grad():
-              
-       
-        #      self.accessor.visual()
-        #print("self.read_vec_vb.view(-1, self.read_vec_dim))",self.read_vec_vb.view(-1, self.read_vec_dim).expand(shape_1,shape_2, -1).shape)
-        #print('self.read_vec_vb',self.read_vec_vb.shape)
-        # torch.Size([80, 80, 64])
-        #torch.cat((input_vb,
-        #                                                torch.zeros_like(self.read_vec_vb.view(-1, self.read_vec_dim))), 1)
-        #print("22222222222222",self.read_vec_vb.shape)
-        #print("self.read_vec_dim",self.read_vec_dim)
-        #print("input_vb",input_vb.shape) 
-        #print("shape_1,shape_2",shape_1,shape_2)
-        #print("self.read_vec_vb.view(-1, self.read_vec_dim)",self.read_vec_vb.view(-1, self.read_vec_dim).shape)
+            #      self.accessor.visual()
+            #print("self.read_vec_vb.view(-1, self.read_vec_dim))",self.read_vec_vb.view(-1, self.read_vec_dim).expand(shape_1,shape_2, -1).shape)
+            #print('self.read_vec_vb',self.read_vec_vb.shape)
+            # torch.Size([80, 80, 64])
+            #torch.cat((input_vb,
+            #                                                torch.zeros_like(self.read_vec_vb.view(-1, self.read_vec_dim))), 1)
+            #print("22222222222222",self.read_vec_vb.shape)
+            #print("self.read_vec_dim",self.read_vec_dim)
+            #print("input_vb",input_vb.shape) 
+            #print("shape_1,shape_2",shape_1,shape_2)
+            #print("self.read_vec_vb.view(-1, self.read_vec_dim)",self.read_vec_vb.view(-1, self.read_vec_dim).shape)
 
-        #print("self.read_vec_vb.view(-1, self.read_vec_dim)",self.read_vec_vb.view(-1, self.read_vec_dim).expand(shape_1,shape_2, -1).shape)
-        #print(torch.cat((input_vb,
-        #                                                self.read_vec_vb.view(-1, self.read_vec_dim).expand(shape_1,shape_2, -1)), 2).shape)
-        #print(torch.cat((input_vb,
-        #                                                self.read_vec_vb.view(-1, self.read_vec_dim).reshape(shape_1,shape_2, -1)), 2).shape)
+            #print("self.read_vec_vb.view(-1, self.read_vec_dim)",self.read_vec_vb.view(-1, self.read_vec_dim).expand(shape_1,shape_2, -1).shape)
+            #print(torch.cat((input_vb,
+            #                                                self.read_vec_vb.view(-1, self.read_vec_dim).expand(shape_1,shape_2, -1)), 2).shape)
+            #print(torch.cat((input_vb,
+            #                                                self.read_vec_vb.view(-1, self.read_vec_dim).reshape(shape_1,shape_2, -1)), 2).shape)
 
-        #output_vb = self.hid_to_out(torch.cat((input_vb,
-        #                                                self.read_vec_vb.view(-1, self.read_vec_dim).reshape(shape_1,shape_2, -1)), 2))
-        mask_add  = self.mask_input(input_vb_reshaped) # self.mask_funct(input_vb_reshaped)
-        solver_result_1 = self.soduko_solver_v1(input_vb_reshaped)
-        solver_result_2 = self.аddd(solver_result_1)
-        solver_result_3 = self.sub(solver_result_2)
+            #output_vb = self.hid_to_out(torch.cat((input_vb,
+            #                                                self.read_vec_vb.view(-1, self.read_vec_dim).reshape(shape_1,shape_2, -1)), 2))
+            #input_mask_1 = self.softmax_1(self.input_weight_1(input_vb_reshaped))
+            #input_mask_2 = self.softmax_2(self.input_weight_2(input_vb_reshaped))
+            #input_mask_3 = self.softmax_3(self.input_weight_3(input_vb_reshaped))
+            solver_result_1 = self.soduko_solver_v1(input_vb_reshaped)
+            solver_result_2 = self.аddd(input_vb_reshaped)
+            solver_result_3 = self.sub(input_vb_reshaped)
 
-        #solver_result_4 = self.mul(solver_result)
-        #solver_result_5 = self.div(solver_result)
-        #solver_result_6 = self.abs(solver_result)
-#        solver_result_7 = self.rev(solver_result)
-        #solver_result_8 = self.acos(input_vb_reshaped)
-        #solver_result_9 = self.acosh(input_vb_reshaped)
-        #solver_result_10 = self.atan(input_vb_reshaped)
-        #print("input_vb",input_vb.shape)
-        #print("solver_result",solver_result.shape)
-        #print("self.hid_to_out",torch.cat((input_vb,solver_result.reshape(shape_1,shape_2, -1)),dim=1).shape)
-        config = wandb.config
+            #solver_result_4 = self.mul(solver_result)
+            #solver_result_5 = self.div(solver_result)
+            #solver_result_6 = self.abs(solver_result)
+    #        solver_result_7 = self.rev(solver_result)
+            #solver_result_8 = self.acos(input_vb_reshaped)
+            #solver_result_9 = self.acosh(input_vb_reshaped)
+            #solver_result_10 = self.atan(input_vb_reshaped)
+            #print("input_vb",input_vb.shape)
+            #print("solver_result",solver_result.shape)
+            #print("self.hid_to_out",torch.cat((input_vb,solver_result.reshape(shape_1,shape_2, -1)),dim=1).shape)
+            config = wandb.config
+            
+            # Use the parameters in your mock training loop
+            #output_vb = torch.add(input_vb,solver_result_1.reshape(shape_1,shape_2, -1),alpha=1)#.view(-1, self.hidden_dim))
+            #return output_vb
+            #output_vb = torch.add(output_vb,solver_result_8.reshape(shape_1,shape_2, -1),alpha=1)
+            #output_vb = torch.add(output_vb,solver_result_9.reshape(shape_1,shape_2, -1),alpha=1)
+            #output_vb = self.hid_to_out(torch.add(input_vb,solver_result_1.reshape(shape_1,shape_2, -1),alpha=1))
+            #output_vb = self.hid_to_out(input_vb)#.view(-1, self.hidden_dim))
+            #output_vb = self.hid_to_out(solver_result.reshape(shape_1,shape_2, -1))#.view(-1, self.hidden_dim))
+            #print("output_vb",output_vb.device)
+            
+            # output_vb = self.hid_to_out(reduce(
+            #     torch.Tensor.add,
+            #     [input_vb, solver_result_1.reshape(shape_1,shape_2, -1), solver_result_8.reshape(shape_1,shape_2, -1),
+            #      solver_result_9.reshape(shape_1,shape_2, -1),solver_result_10.reshape(shape_1,shape_2, -1)],
+            #     torch.zeros_like(input_vb)  # optionally set initial element to avoid changing `x`
+            # ))
+            #print("solver_result_1",solver_result_1.shape)
+            #print("solver_result_8",solver_result_8.shape)
+            #print("solver_result_9",solver_result_9.shape)
+            #print("solver_result_10",solver_result_10.shape)
+            #print("hid_to_out",self.hid_to_out)
+            #print("hid_to_out",self.hid_to_out.gate_up_proj.weight.shape)
+
+            #combined_results =  solver_result_1*input_mask_1 +input_vb_reshaped+solver_result_2*input_mask_2+solver_result_3*input_mask_3
+            #combined_results = self.cat_all(torch.cat([input_vb_reshaped,solver_result_1,solver_result_2,solver_result_3], dim=-1))
+            M_tensor = torch.stack([solver_result_1,solver_result_2,solver_result_3], dim=1)
+            query = input_vb_reshaped.unsqueeze(1)
+            attn_output, attn_output_weights = self.multi_func(query, M_tensor,M_tensor)
+            attn_output = attn_output.squeeze(1)
+
+            # 6. Add back to original context
+            #input_vb_reshaped = input_vb_reshaped + solver_result_1
+            #output_vb = self.hid_to_out(attn_output)#combined_results.reshape(shape_1,shape_2, -1))
+            #output_vb = self.hid_to_out(combined_results.reshape(shape_1,shape_2, -1))
+            #print("output_vb",output_vb.shape)
+            #output_vb = self.out_fix(output_vb.flatten())
+            attn_output = attn_output.reshape(shape_1,shape_2, -1)
+            #self.input_vb = self.vis.heatmap(input_vb_reshaped.data[:80,:80].clone().cpu().detach().float().numpy().tolist(), env="daim_17080800", win=self.input_vb, opts=dict(title="input_vb")) #self.vis.heatmap(val, env=self.refs, win=self.win_head, opts=dict(title="write_head"))
+            #print("output_vb",output_vb.shape)
+            return attn_output #torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value).view(int(self.batch_size), int(self.batch_size), 64) #F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(int(self.batch_size), int(self.batch_size), 64)
+            #print("(1, int(self.batch_size), self.output_dim)",(1, int(self.batch_size), self.output_dim))
+            # if not self.training:
+            #     #with torch.no_grad():
+            #         self.read_vec_vb = self.accessor.forward(input_vb)
+            #         #self.accessor.visual()
+            #         output_vb = self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim),
+            #                                                self.read_vec_vb.view(-1, self.read_vec_dim)), 1))
+            #         #output_vb = torch.cat((input_vb.view(-1, self.hidden_dim)), 1)
+            #         #output_vb = self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim)), 1))
+            #         return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(int(self.batch_size), int(self.batch_size), 64)
+            # else:
+            #     #print("1.5.1")
         
-        # Use the parameters in your mock training loop
-        #output_vb = torch.add(input_vb,solver_result_1.reshape(shape_1,shape_2, -1),alpha=1)#.view(-1, self.hidden_dim))
-        #output_vb = torch.add(output_vb,solver_result_8.reshape(shape_1,shape_2, -1),alpha=1)
-        #output_vb = torch.add(output_vb,solver_result_9.reshape(shape_1,shape_2, -1),alpha=1)
-        #output_vb = self.hid_to_out(torch.add(input_vb,solver_result_10.reshape(shape_1,shape_2, -1),alpha=1))
-        #output_vb = self.hid_to_out(input_vb)#.view(-1, self.hidden_dim))
-        #output_vb = self.hid_to_out(solver_result.reshape(shape_1,shape_2, -1))#.view(-1, self.hidden_dim))
-        #print("output_vb",output_vb.device)
-        
-        # output_vb = self.hid_to_out(reduce(
-        #     torch.Tensor.add,
-        #     [input_vb, solver_result_1.reshape(shape_1,shape_2, -1), solver_result_8.reshape(shape_1,shape_2, -1),
-        #      solver_result_9.reshape(shape_1,shape_2, -1),solver_result_10.reshape(shape_1,shape_2, -1)],
-        #     torch.zeros_like(input_vb)  # optionally set initial element to avoid changing `x`
-        # ))
-        #print("solver_result_1",solver_result_1.shape)
-        #print("solver_result_8",solver_result_8.shape)
-        #print("solver_result_9",solver_result_9.shape)
-        #print("solver_result_10",solver_result_10.shape)
-        #print("hid_to_out",self.hid_to_out)
-        #print("hid_to_out",self.hid_to_out.gate_up_proj.weight.shape)
-        combined_results =  solver_result_1 +input_vb_reshaped+solver_result_2+solver_result_3
-        combined_results = mask_add*combined_results#torch.mul(mask_add,combined_results)
-        output_vb = self.hid_to_out(combined_results.reshape(shape_1,shape_2, -1))
+            #     self.read_vec_vb = self.accessor.forward(input_vb)
+            #     #print("1.5.2")
+            #     #output_vb = torch.zeros_like(self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim),
+            #     #                                       self.read_vec_vb.view(-1, self.read_vec_dim)), 1)))
+            #     #output_vb = torch.cat((input_vb.view(-1, self.hidden_dim)), 1)
+            #     #output_vb = self.hid_to_out((input_vb.view(-1, self.hidden_dim)))
 
-        #print("output_vb",output_vb.shape)
-        #output_vb = self.out_fix(output_vb.flatten())
-        output_vb = output_vb.reshape(shape_1,shape_2, -1)
-        #self.input_vb = self.vis.heatmap(input_vb_reshaped.data[:80,:80].clone().cpu().detach().float().numpy().tolist(), env="daim_17080800", win=self.input_vb, opts=dict(title="input_vb")) #self.vis.heatmap(val, env=self.refs, win=self.win_head, opts=dict(title="write_head"))
-        #print("output_vb",output_vb.shape)
-        return output_vb #torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value).view(int(self.batch_size), int(self.batch_size), 64) #F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(int(self.batch_size), int(self.batch_size), 64)
-        #print("(1, int(self.batch_size), self.output_dim)",(1, int(self.batch_size), self.output_dim))
-        # if not self.training:
-        #     #with torch.no_grad():
-        #         self.read_vec_vb = self.accessor.forward(input_vb)
-        #         #self.accessor.visual()
-        #         output_vb = self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim),
-        #                                                self.read_vec_vb.view(-1, self.read_vec_dim)), 1))
-        #         #output_vb = torch.cat((input_vb.view(-1, self.hidden_dim)), 1)
-        #         #output_vb = self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim)), 1))
-        #         return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(int(self.batch_size), int(self.batch_size), 64)
-        # else:
-        #     #print("1.5.1")
-    
-        #     self.read_vec_vb = self.accessor.forward(input_vb)
-        #     #print("1.5.2")
-        #     #output_vb = torch.zeros_like(self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim),
-        #     #                                       self.read_vec_vb.view(-1, self.read_vec_dim)), 1)))
-        #     #output_vb = torch.cat((input_vb.view(-1, self.hidden_dim)), 1)
-        #     #output_vb = self.hid_to_out((input_vb.view(-1, self.hidden_dim)))
+            #     output_vb = self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim),
+            #                                                self.read_vec_vb.view(-1, self.read_vec_dim)), 1))
 
-        #     output_vb = self.hid_to_out(torch.cat((input_vb.view(-1, self.hidden_dim),
-        #                                                self.read_vec_vb.view(-1, self.read_vec_dim)), 1))
-
-        #     with torch.no_grad():
-        #         self.accessor.visual()
-        #     #print("1.5.3")
-        #     return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(int(self.batch_size), int(self.batch_size), 64)
-            #            return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(768, int(self.batch_size/768), self.output_dim)
+            #     with torch.no_grad():
+            #         self.accessor.visual()
+            #     #print("1.5.3")
+            #     return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(int(self.batch_size), int(self.batch_size), 64)
+                #            return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(768, int(self.batch_size/768), self.output_dim)
 
     def forward(self, input_vb):
         # NOTE: the operation order must be the following: control, access{write, read}, output

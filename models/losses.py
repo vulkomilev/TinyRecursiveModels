@@ -93,7 +93,7 @@ class ACTLossHead(nn.Module):
         targets_seq = targets_seq * (1.0 - smoothing) + 0.5 * smoothing
         #q_halt_loss = F.binary_cross_entropy_with_logits(outputs["q_halt_logits"], seq_is_correct.to(outputs["q_halt_logits"].dtype), reduction="mean")#reduction="sum")
         #try muon
-        q_halt_loss = F.binary_cross_entropy_with_logits(outputs["q_halt_logits"], targets_seq, reduction="mean")#reduction="sum")
+        q_halt_loss = F.binary_cross_entropy_with_logits(outputs["q_halt_logits"], seq_is_correct.to(outputs["q_halt_logits"].dtype), reduction="sum")#reduction="sum")
         
         metrics.update({
             "lm_loss": lm_loss.detach(),

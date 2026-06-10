@@ -31,7 +31,7 @@ from models.ema import EMAHelper
 from torch.utils.tensorboard import SummaryWriter
 
 
-LOG = True
+LOG = False
 VISDOM = True
 is_init = False
 
@@ -625,8 +625,9 @@ def launch(hydra_config: DictConfig):
             wandb.init(project=config.project_name, name="using complex 1 full logic", config=config.model_dump(), notes= 'I have feeded the context layer inside the symbolic logic' \
             ' used to generate the dataset and after that I have concatinated the results by cutting the resutls. Now I am adding the contect layer and the result from the logic.Addition is at 1\
                 I have also removed the loop.Now testing just 4 functions to see if they will disturb the training.I have added a masking function to see if this will improve the results because the four functions' \
-                'togheted massively decreased the performance while the single function massively increased it', settings=wandb.Settings(_disable_stats=True))  # type: ignore
+                'togheted massively decreased the performance while the single function massively increased it', settings=wandb.Settings(_disable_stats=True),save_code=True)  # type: ignore
             wandb.log({"num_params": sum(x.numel() for x in train_state.model.parameters())}, step=0)
+            wandb.run.log_code("./models/pytorch_dnc/circuit.py")
 
            # wandb.watch(train_state.model, log="all")
     # Progress bar and logger
